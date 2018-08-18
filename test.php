@@ -1,0 +1,135 @@
+<?php
+
+if (!isset($_GET['number'])) {
+    header('Location: list.php');
+    exit;
+}
+
+if (!isset(glob('tests/*.json')[$_GET['number']])) {
+    header('HTTP/1.0 404 Not Found');
+    exit;
+}
+
+$allTests = glob('tests/*.json');
+$number = $_GET['number'];
+$test = file_get_contents($allTests[$number]);
+$test = json_decode($test, true);
+
+
+function checkTest($testFile)
+{
+
+    foreach ($testFile as $key => $item) {
+
+        if (!isset($_POST['answer' . $key])) {
+            echo 'Пожалуйста, ответьте на все вопросы';
+            exit;
+        }
+
+    }
+
+
+    foreach ($testFile as $key => $item) {
+
+        if ($item['correct_answer'] === $_POST['answer' . $key]) {
+            $infoStyle = 'correct';
+        } else {
+            $infoStyle = 'incorrect';
+        }
+
+
+        echo '<div class=' . $infoStyle . '>' .
+            'Вопрос: ' . $item['question'] . '<br>' .
+            'Ваш ответ: ' . $item['answers'][$_POST['answer' . $key]] . '<br>' .
+            'Правильный ответ: ' . $item['answers'][$item['correct_answer']] . '<br>' .
+            '</div>' .
+            '<hr>';
+    }
+}
+
+function answersCounter($testFile)
+{
+
+    $i = 0;
+    $questions = 0;
+
+    foreach ($testFile as $key => $item) {
+        $questions++;
+        if ($item['correct_answer'] === $_POST['answer' . $key]) {
+            $i++;
+        }
+    }
+
+    return ['correct' => $i, 'total' => $questions];
+}
+
+
+if (isset($_POST['check-test'])) {
+    $testname = basename($allTests[$number]);
+    $username = str_replace(' ', '', $_POST['username']);
+    $correctAnswers = answersCounter($test)['correct'];
+    $totalAnswers = answersCounter($test)['total'];
+    $variables = [
+        'testname' => $testname,
+        'username' => $username,
+        'correctAnswers' => $correctAnswers,
+        'totalAnswers' => $totalAnswers
+    ];
+}
+
+if (isset($_POST['generate-picture'])) {
+    include_once 'create-picture.php';
+}
+
+?>
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+<body>
+
+<a href="<?php echo isset($_POST['check-test']) ? $_SERVER['HTTP_REFERER'] : 'list.php' ?>"><div>&lt; Назад</div></a><br>
+
+
+<?php if (!isset($_POST['check-test'])): ?>
+    <form method="POST">
+        <h1><?php echo basename($allTests[$number]); ?></h1>
+        <label>Введите ваше имя: <input type="text" name="username" ></label>
+        <?php foreach ($test as $key => $item): ?>
+            <fieldset>
+
+                <div class="on-hidden-radio"></div>
+
+                <legend><?php echo $item['question'] ?></legend>
+                <label><input type="radio" name="answer<?php echo $key ?>" value="1"><?php echo $item['answers'][1] ?>
+                </label><br>
+                <label><input type="radio" name="answer<?php echo $key ?>" value="2"><?php echo $item['answers'][2] ?>
+                </label><br>
+                <label><input type="radio" name="answer<?php echo $key ?>" value="3"><?php echo $item['answers'][3] ?>
+                </label>
+            </fieldset>
+        <?php endforeach; ?>
+        <input type="submit" name="check-test" value="Проверить">
+    </form>
+<?php endif; ?>
+
+<?php if (isset($_POST['check-test'])): ?>
+    <div class="check-test">
+        <?php checkTest($test) ?>
+        <p style="font-weight: bold;">Итого правильных ответов: <?php echo "$correctAnswers из $totalAnswers" ?></p>
+        <h3>Загрузить сертификат: </h3>
+        <form method="POST">
+            <input type="submit" name="generate-picture" value="Сертификат">
+            <?php foreach ($variables as $key => $variable): ?>
+                <input type="hidden" value="<?php echo $variable ?>" name="<?php echo $key ?>">
+            <?php endforeach; ?>
+        </form>
+    </div>
+<?php endif; ?>
+
+
+</body>
+</html>
